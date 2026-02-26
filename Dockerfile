@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
   libglu1-mesa-dev \
   freeglut3-dev \
   curl \
+  lua5.4 \
   && rm -rf /var/lib/apt/lists/*
 
 # TIC-80 forrás letöltése és build
