@@ -17,8 +17,10 @@ RUN apt-get update && apt-get install -y \
   lua5.4 \
   && rm -rf /var/lib/apt/lists/*
 
-# TIC-80 forrás letöltése és build
-RUN git clone --recursive https://github.com/nesbox/TIC-80 /opt/TIC-80 && \
+# TIC-80 forrás letöltése és build; a web.Dockerfile ugyanezt a commitot fordítja webre
+ARG TIC80_REF=ae1195a9
+RUN git clone https://github.com/nesbox/TIC-80 /opt/TIC-80 && \
+  cd /opt/TIC-80 && git checkout ${TIC80_REF} && git submodule update --init --recursive && \
   cd /opt/TIC-80/build && \
   cmake -DBUILD_SDLGPU=On -DBUILD_WITH_ALL=On -DBUILD_PRO=On -DBUILD_STATIC=On .. && \
   cmake --build . --parallel

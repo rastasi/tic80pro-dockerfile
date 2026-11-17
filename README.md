@@ -35,3 +35,24 @@ docker run -it tic80-pro /bin/bash
 ```
 
 Once inside the container, you can run `tic80` to launch the fantasy console.
+
+## Web player (WarpEngine runtime)
+
+The catalog plays TIC-80 releases in the browser from the update server's `tic80`
+runtime (WarpEngine 3.1+), not from a per-release html export: the current
+development builds can no longer fetch an html export template from tic80.com.
+`web.Dockerfile` builds the Pro web player (`tic80.js` + `tic80.wasm`, Emscripten)
+from the same TIC-80 commit as the native image (`TIC80_REF`), and the Makefile
+installs it as a runtime version named after the TIC-80 version (e.g. `1.2.3054-dev`):
+
+```bash
+make runtime                                  # dist/tic80-runtime.zip + dist/VERSION
+make upload-runtime TOKEN=<application token with the upload scope>
+```
+
+The same version sent again with the same files is accepted unchanged; other files
+for it are refused. Choose it for new releases in the host initializer
+(`runtime :tic80, version: "..."`); the releases already published keep the
+version they were published with.
+
+Build the native image with `make image` / `make push`; both pin `TIC80_REF`.
