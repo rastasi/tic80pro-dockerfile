@@ -1,0 +1,132 @@
+name: Export stubs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: [Dockerfile, .github/workflows/stubs.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  ref:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: ref
+        run: echo "ref=$(sed -n 's/^ARG TIC80_REF=//p' Dockerfile)" >> "$GITHUB_OUTPUT"
+
+  linux:
+    needs: ref
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: nesbox/TIC-80
+          ref: ${{ needs.ref.outputs.ref }}
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.6
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-12 g++-12 libglu1-mesa-dev libasound2-dev libpulse-dev libaudio-dev libsamplerate0-dev libcurl4-openssl-dev
+          sudo ln -sf /usr/bin/gcc-12 /usr/bin/gcc
+          sudo ln -sf /usr/bin/g++-12 /usr/bin/g++
+      - run: |
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SDLGPU=On -DBUILD_STATIC=ON -DBUILD_WITH_ALL=ON ..
+          cmake --build . --parallel
+          ls -l bin
+          cp bin/tic80 ../tic80-stub-linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: tic80-stub-linux-x64
+
+  windows:
+    needs: ref
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: base-devel git gcc
+      - uses: actions/checkout@v4
+        with:
+          repository: nesbox/TIC-80
+          ref: ${{ needs.ref.outputs.ref }}
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.6
+      - shell: bash
+        run: |
+          cd build
+          cmake -G "MSYS Makefiles" -DBUILD_SDLGPU=On -DBUILD_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_ALL=ON ..
+          cmake --build . --parallel
+          ls -l bin
+          cp bin/tic80.exe ../tic80-stub-win-x64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-x64
+          path: tic80-stub-win-x64.exe
+
+  macos:
+    needs: ref
+    strategy:
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: nesbox/TIC-80
+          ref: ${{ needs.ref.outputs.ref }}
+          submodules: recursive
+          fetch-depth: 0
+      - run: brew uninstall --ignore-dependencies libidn2
+      - run: |
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=ON -DBUILD_SDLGPU=On -DBUILD_WITH_ALL=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
+          cmake --build . --parallel
+          ls -l bin
+          otool -L bin/tic80
+          cp bin/tic80 ../tic80-stub-mac-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-${{ matrix.arch }}
+          path: tic80-stub-mac-${{ matrix.arch }}
+
+  release:
+    needs: [ref, linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: stubs
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: stubs-${{ needs.ref.outputs.ref }}
+        run: |
+          ls -l stubs
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" stubs/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "TIC-80 export stubs $TAG" \
+              --notes "Non-Pro TIC-80 builds of nesbox/TIC-80@${{ needs.ref.outputs.ref }}, the players tic80-export embeds a cart into." stubs/*
+          fi
