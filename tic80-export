@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+import os
+import struct
+import sys
+import zlib
+
+STUBS = os.environ.get("TIC80_STUBS", "/opt/tic80-stubs")
+PLATFORMS = {
+    "win": "tic80-stub-win-x64.exe",
+    "linux": "tic80-stub-linux-x64",
+    "mac": "tic80-stub-mac-x64",
+}
+
+
+def main(argv):
+    if len(argv) != 4 or argv[1] not in PLATFORMS:
+        sys.exit(f"usage: tic80-export {'|'.join(PLATFORMS)} CART.tic OUTPUT")
+    platform, cart, output = argv[1:]
+    with open(os.path.join(STUBS, PLATFORMS[platform]), "rb") as stub:
+        app = stub.read()
+    with open(cart, "rb") as source:
+        packed = zlib.compress(source.read(), 9)
+    with open(output, "wb") as target:
+        target.write(app + b"TIC.CART" + struct.pack("<ii", len(app), len(packed)) + packed)
+    os.chmod(output, 0o755)
+    print(f"tic80-export: {output} ({platform}, {len(app) + 16 + len(packed)} bytes)")
+
+
+if __name__ == "__main__":
+    main(sys.argv)

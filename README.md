@@ -36,6 +36,23 @@ docker run -it tic80-pro /bin/bash
 
 Once inside the container, you can run `tic80` to launch the fantasy console.
 
+## Native export (tic80-export)
+
+TIC-80's own `export win|linux|mac` downloads the player it embeds a cart into from
+tic80.com, which serves the 1.1 players only; the 1.2-dev ones this image's TIC-80 asks
+for are gone. So the players are built here instead:
+
+- `.github/workflows/stubs.yml` builds plain (non-Pro) TIC-80 at `TIC80_REF` for Linux
+  x64, Windows x64 and macOS x64 and publishes them as the `stubs-<ref>` release;
+- `export.Dockerfile` adds them to the image under `/opt/tic80-stubs` with
+  `tic80-export`, which does what TIC-80's export does: the player, a `TIC.CART`
+  header and the zlib-packed cart.
+
+```bash
+tic80-export win game.tic game.exe        # also: linux, mac
+make push-export                          # BASE=<the tic80pro image to add them to>
+```
+
 ## Web player (WarpEngine runtime)
 
 The catalog plays TIC-80 releases in the browser from the update server's `tic80`
