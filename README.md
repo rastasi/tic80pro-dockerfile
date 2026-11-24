@@ -64,7 +64,7 @@ installs it as a runtime version named after the TIC-80 version (e.g. `1.2.3054-
 
 ```bash
 make runtime                                  # dist/tic80-runtime.zip + dist/VERSION
-make upload-runtime TOKEN=<application token with the upload scope>
+make upload-runtime WARP_TOKEN=<application token with the upload scope>
 ```
 
 The same version sent again with the same files is accepted unchanged; other files
